@@ -21,7 +21,9 @@ References:
    - https://developer.mozilla.org/en-US/docs/JSON#JSON_in_Firefox_2
 */
 
+var util = require('util');
 var fs = require('fs');
+var rest = require('restler');
 var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
@@ -61,12 +63,31 @@ var clone = function(fn) {
     return fn.bind({});
 };
 
+var processHtmlContent = function(result, response){
+    if (result instanceof Error) {
+	console.error('Error: ' + util.format(response.message));
+    } else {
+       console.log("HTML content: \n%s", result);
+    }
+};
+
 if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
-        .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-f, --file [html_file]', 'Path to index.html')
+	.option('-u, --url [url]', 'URL to index.html')
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
+    var checkJson = {};
+    if(program.url == undefined){
+	program.file = program.file || HTMLFILE_DEFAULT;
+	program.file = assertFileExists(program.file);
+	console.log("File mode on! File: " + program.file);
+	checkJson = checkHtmlFile(program.file, program.checks);
+    }else{
+	console.log("URL mode on! URL: " + program.url);
+	rest.get(program.url).on('complete', processHtmlContent);
+	//checkJson = checkHtmlFile(program.file, program.checks);
+    }
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
